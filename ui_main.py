@@ -5,6 +5,7 @@
 
 import tkinter as tk
 from tkinter import messagebox
+import traceback
 from config import COLORS, FONTS, SIZES
 from db import create_tables, migrate_tables
 from ui_login import LoginScreen
@@ -100,21 +101,33 @@ class App:
         self.frames['Login'] = LoginScreen(self.container, self)
         
         # Главное меню
-        main_menu = MainMenu(self.container, self)
-        self.frames['MainMenu'] = main_menu
+        try:
+            main_menu = MainMenu(self.container, self)
+            self.frames['MainMenu'] = main_menu
+        except Exception as e:
+            print("Ошибка при создании главного меню:", e)
+            traceback.print_exc()
+            messagebox.showerror("Ошибка UI", f"Не удалось построить главное меню:\n{e}")
+            # Фоллбек пустой фрейм
+            self.frames['MainMenu'] = tk.Frame(self.container, bg=COLORS['bg_main'])
         
         # Экраны функционала
-        self.frames['Materials'] = MaterialsScreen(self.container, self)
-        self.frames['Receipt'] = ReceiptScreen(self.container, self)
-        self.frames['Issue'] = IssueScreen(self.container, self)
-        self.frames['Reports'] = ReportsScreen(self.container, self)
-        self.frames['Replenishment'] = ReplenishmentScreen(self.container, self)
-        self.frames['Locations'] = LocationsScreen(self.container, self)
-        self.frames['Suppliers'] = SuppliersScreen(self.container, self)
-        self.frames['Orders'] = OrdersScreen(self.container, self)
-        self.frames['Reservations'] = ReservationsScreen(self.container, self)
-        self.frames['Quality'] = QualityScreen(self.container, self)
-        self.frames['Transfer'] = TransferScreen(self.container, self)
+        try:
+            self.frames['Materials'] = MaterialsScreen(self.container, self)
+            self.frames['Receipt'] = ReceiptScreen(self.container, self)
+            self.frames['Issue'] = IssueScreen(self.container, self)
+            self.frames['Reports'] = ReportsScreen(self.container, self)
+            self.frames['Replenishment'] = ReplenishmentScreen(self.container, self)
+            self.frames['Locations'] = LocationsScreen(self.container, self)
+            self.frames['Suppliers'] = SuppliersScreen(self.container, self)
+            self.frames['Orders'] = OrdersScreen(self.container, self)
+            self.frames['Reservations'] = ReservationsScreen(self.container, self)
+            self.frames['Quality'] = QualityScreen(self.container, self)
+            self.frames['Transfer'] = TransferScreen(self.container, self)
+        except Exception as e:
+            print("Ошибка при создании экранов:", e)
+            traceback.print_exc()
+            messagebox.showerror("Ошибка UI", f"Не удалось построить экраны:\n{e}")
         
         # Размещаем все экраны в одном месте (они будут показываться по очереди)
         for frame in self.frames.values():
@@ -133,10 +146,15 @@ class App:
         
         # Показываем выбранный экран
         if frame_name in self.frames:
-            self.frames[frame_name].lift()
-            # Обновляем данные экрана, если нужно
-            if hasattr(self.frames[frame_name], 'refresh'):
-                self.frames[frame_name].refresh()
+            try:
+                self.frames[frame_name].lift()
+                # Обновляем данные экрана, если нужно
+                if hasattr(self.frames[frame_name], 'refresh'):
+                    self.frames[frame_name].refresh()
+            except Exception as e:
+                print(f"Ошибка при показе экрана {frame_name}:", e)
+                traceback.print_exc()
+                messagebox.showerror("Ошибка UI", f"Не удалось показать экран {frame_name}:\n{e}")
     
     def toggle_fullscreen(self, event=None):
         """
@@ -178,12 +196,22 @@ class MainMenu(tk.Frame):
     def __init__(self, parent, app):
         super().__init__(parent, bg=COLORS['bg_main'])
         self.app = app
-        
+        self.error_label = None
         self.create_widgets()
     
     def create_widgets(self):
         """Создает виджеты главного меню."""
+        # Полная перерисовка
+        for child in self.winfo_children():
+            child.destroy()
+        if self.error_label:
+            self.error_label.destroy()
+            self.error_label = None
+
         def allowed(required):
+            # Админ видит все
+            if self.app.user_role == 'admin':
+                return True
             return self.app.has_permission(required)
 
         # Заголовок
@@ -208,216 +236,240 @@ class MainMenu(tk.Frame):
         subtitle_label.pack()
         
         # Фрейм для кнопок
-        button_frame = tk.Frame(self, bg=COLORS['bg_main'], pady=40)
-        button_frame.pack(expand=True)
+        try:
+            button_frame = tk.Frame(self, bg=COLORS['bg_main'], pady=40)
+            button_frame.pack(expand=True)
         
-        # Кнопка "Материалы"
-        if allowed(['storekeeper', 'admin', 'supply']):
-            btn_materials = tk.Button(
-                button_frame,
-                text="Материалы",
-                font=FONTS['button'],
-                width=SIZES['button_width'],
-                height=SIZES['button_height'],
-                command=lambda: self.app.show_frame('Materials'),
-                bg=COLORS['bg_button'],
-                fg=COLORS['text_primary'],
-                activebackground=COLORS['bg_button_hover'],
-                activeforeground=COLORS['text_primary'],
-                cursor="hand2",
-                relief=tk.FLAT,
-                padx=20,
-                pady=15
-            )
-            btn_materials.pack(pady=10)
+            # Кнопка "Материалы"
+            if allowed(['storekeeper', 'admin', 'supply']):
+                tk.Button(
+                    button_frame,
+                    text="Материалы",
+                    font=FONTS['button'],
+                    width=SIZES['button_width'],
+                    height=SIZES['button_height'],
+                    command=lambda: self.app.show_frame('Materials'),
+                    bg=COLORS['bg_button'],
+                    fg=COLORS['text_primary'],
+                    activebackground=COLORS['bg_button_hover'],
+                    activeforeground=COLORS['text_primary'],
+                    cursor="hand2",
+                    relief=tk.FLAT,
+                    padx=20,
+                    pady=15
+                ).pack(pady=10)
         
-        # Кнопка "Приход"
-        if allowed(['storekeeper', 'admin']):
-            btn_receipt = tk.Button(
-                button_frame,
-                text="Приход материалов",
-                font=FONTS['button'],
-                width=SIZES['button_width'],
-                height=SIZES['button_height'],
-                command=lambda: self.app.show_frame('Receipt'),
-                bg=COLORS['bg_button'],
-                fg=COLORS['text_primary'],
-                activebackground=COLORS['bg_button_hover'],
-                activeforeground=COLORS['text_primary'],
-                cursor="hand2",
-                relief=tk.FLAT,
-                padx=20,
-                pady=15
-            )
-            btn_receipt.pack(pady=10)
+            # Кнопка "Приход"
+            if allowed(['storekeeper', 'admin']):
+                tk.Button(
+                    button_frame,
+                    text="Приход материалов",
+                    font=FONTS['button'],
+                    width=SIZES['button_width'],
+                    height=SIZES['button_height'],
+                    command=lambda: self.app.show_frame('Receipt'),
+                    bg=COLORS['bg_button'],
+                    fg=COLORS['text_primary'],
+                    activebackground=COLORS['bg_button_hover'],
+                    activeforeground=COLORS['text_primary'],
+                    cursor="hand2",
+                    relief=tk.FLAT,
+                    padx=20,
+                    pady=15
+                ).pack(pady=10)
         
-        # Кнопка "Списание"
-        if allowed(['storekeeper', 'admin']):
-            btn_issue = tk.Button(
-                button_frame,
-                text="Списание материалов",
-                font=FONTS['button'],
-                width=SIZES['button_width'],
-                height=SIZES['button_height'],
-                command=lambda: self.app.show_frame('Issue'),
-                bg=COLORS['bg_button'],
-                fg=COLORS['text_primary'],
-                activebackground=COLORS['bg_button_hover'],
-                activeforeground=COLORS['text_primary'],
-                cursor="hand2",
-                relief=tk.FLAT,
-                padx=20,
-                pady=15
-            )
-            btn_issue.pack(pady=10)
+            # Кнопка "Списание"
+            if allowed(['storekeeper', 'admin']):
+                tk.Button(
+                    button_frame,
+                    text="Списание материалов",
+                    font=FONTS['button'],
+                    width=SIZES['button_width'],
+                    height=SIZES['button_height'],
+                    command=lambda: self.app.show_frame('Issue'),
+                    bg=COLORS['bg_button'],
+                    fg=COLORS['text_primary'],
+                    activebackground=COLORS['bg_button_hover'],
+                    activeforeground=COLORS['text_primary'],
+                    cursor="hand2",
+                    relief=tk.FLAT,
+                    padx=20,
+                    pady=15
+                ).pack(pady=10)
 
-        # Перемещение
-        if allowed(['storekeeper', 'admin']):
-            tk.Button(
-                button_frame,
-                text="Перемещения",
-                font=FONTS['button'],
-                width=SIZES['button_width'],
-                height=SIZES['button_height'],
-                command=lambda: self.app.show_frame('Transfer'),
-                bg=COLORS['bg_button'],
-                fg=COLORS['text_primary'],
-                activebackground=COLORS['bg_button_hover'],
-                activeforeground=COLORS['text_primary'],
-                cursor="hand2",
-                relief=tk.FLAT,
-                padx=20,
-                pady=15
-            ).pack(pady=10)
-            tk.Button(
-                button_frame,
-                text="Адреса хранения",
-                font=FONTS['button'],
-                width=SIZES['button_width'],
-                height=SIZES['button_height'],
-                command=lambda: self.app.show_frame('Locations'),
-                bg=COLORS['bg_button'],
-                fg=COLORS['text_primary'],
-                activebackground=COLORS['bg_button_hover'],
-                activeforeground=COLORS['text_primary'],
-                cursor="hand2",
-                relief=tk.FLAT,
-                padx=20,
-                pady=15
-            ).pack(pady=10)
+            # Перемещение
+            if allowed(['storekeeper', 'admin']):
+                tk.Button(
+                    button_frame,
+                    text="Перемещения",
+                    font=FONTS['button'],
+                    width=SIZES['button_width'],
+                    height=SIZES['button_height'],
+                    command=lambda: self.app.show_frame('Transfer'),
+                    bg=COLORS['bg_button'],
+                    fg=COLORS['text_primary'],
+                    activebackground=COLORS['bg_button_hover'],
+                    activeforeground=COLORS['text_primary'],
+                    cursor="hand2",
+                    relief=tk.FLAT,
+                    padx=20,
+                    pady=15
+                ).pack(pady=10)
+                tk.Button(
+                    button_frame,
+                    text="Адреса хранения",
+                    font=FONTS['button'],
+                    width=SIZES['button_width'],
+                    height=SIZES['button_height'],
+                    command=lambda: self.app.show_frame('Locations'),
+                    bg=COLORS['bg_button'],
+                    fg=COLORS['text_primary'],
+                    activebackground=COLORS['bg_button_hover'],
+                    activeforeground=COLORS['text_primary'],
+                    cursor="hand2",
+                    relief=tk.FLAT,
+                    padx=20,
+                    pady=15
+                ).pack(pady=10)
         
-        # Кнопка "Отчеты"
-        if allowed(['accountant', 'admin', 'storekeeper', 'supply']):
-            btn_reports = tk.Button(
-                button_frame,
-                text="Отчет по остаткам",
-                font=FONTS['button'],
-                width=SIZES['button_width'],
-                height=SIZES['button_height'],
-                command=lambda: self.app.show_frame('Reports'),
-                bg=COLORS['bg_button'],
-                fg=COLORS['text_primary'],
-                activebackground=COLORS['bg_button_hover'],
-                activeforeground=COLORS['text_primary'],
-                cursor="hand2",
-                relief=tk.FLAT,
-                padx=20,
-                pady=15
-            )
-            btn_reports.pack(pady=10)
+            # Кнопка "Отчеты"
+            if allowed(['accountant', 'admin', 'storekeeper', 'supply']):
+                tk.Button(
+                    button_frame,
+                    text="Отчет по остаткам",
+                    font=FONTS['button'],
+                    width=SIZES['button_width'],
+                    height=SIZES['button_height'],
+                    command=lambda: self.app.show_frame('Reports'),
+                    bg=COLORS['bg_button'],
+                    fg=COLORS['text_primary'],
+                    activebackground=COLORS['bg_button_hover'],
+                    activeforeground=COLORS['text_primary'],
+                    cursor="hand2",
+                    relief=tk.FLAT,
+                    padx=20,
+                    pady=15
+                ).pack(pady=10)
         
-        # Кнопка "Заявки на пополнение" (для снабженцев)
-        if allowed(['supply', 'admin']):
-            btn_replenishment = tk.Button(
-                button_frame,
-                text="Заявки на пополнение",
-                font=FONTS['button'],
-                width=SIZES['button_width'],
-                height=SIZES['button_height'],
-                command=lambda: self.app.show_frame('Replenishment'),
-                bg=COLORS['accent_orange'],
-                fg=COLORS['text_primary'],
-                activebackground='#e67e22',
-                activeforeground=COLORS['text_primary'],
-                cursor="hand2",
-                relief=tk.FLAT,
-                padx=20,
-                pady=15
+            # Кнопка "Заявки на пополнение" (для снабженцев)
+            if allowed(['supply', 'admin']):
+                tk.Button(
+                    button_frame,
+                    text="Заявки на пополнение",
+                    font=FONTS['button'],
+                    width=SIZES['button_width'],
+                    height=SIZES['button_height'],
+                    command=lambda: self.app.show_frame('Replenishment'),
+                    bg=COLORS['accent_orange'],
+                    fg=COLORS['text_primary'],
+                    activebackground='#e67e22',
+                    activeforeground=COLORS['text_primary'],
+                    cursor="hand2",
+                    relief=tk.FLAT,
+                    padx=20,
+                    pady=15
+                ).pack(pady=10)
+
+            # Поставщики и договоры
+            if allowed(['supply', 'admin']):
+                tk.Button(
+                    button_frame,
+                    text="Поставщики / Договоры",
+                    font=FONTS['button'],
+                    width=SIZES['button_width'],
+                    height=SIZES['button_height'],
+                    command=lambda: self.app.show_frame('Suppliers'),
+                    bg=COLORS['bg_button'],
+                    fg=COLORS['text_primary'],
+                    activebackground=COLORS['bg_button_hover'],
+                    activeforeground=COLORS['text_primary'],
+                    cursor="hand2",
+                    relief=tk.FLAT,
+                    padx=20,
+                    pady=15
+                ).pack(pady=10)
+
+            # Заказы и резервы
+            if allowed(['storekeeper', 'admin', 'supply']):
+                tk.Button(
+                    button_frame,
+                    text="Заказы производства",
+                    font=FONTS['button'],
+                    width=SIZES['button_width'],
+                    height=SIZES['button_height'],
+                    command=lambda: self.app.show_frame('Orders'),
+                    bg=COLORS['bg_button'],
+                    fg=COLORS['text_primary'],
+                    activebackground=COLORS['bg_button_hover'],
+                    activeforeground=COLORS['text_primary'],
+                    cursor="hand2",
+                    relief=tk.FLAT,
+                    padx=20,
+                    pady=15
+                ).pack(pady=10)
+                tk.Button(
+                    button_frame,
+                    text="Резервы материалов",
+                    font=FONTS['button'],
+                    width=SIZES['button_width'],
+                    height=SIZES['button_height'],
+                    command=lambda: self.app.show_frame('Reservations'),
+                    bg=COLORS['bg_button'],
+                    fg=COLORS['text_primary'],
+                    activebackground=COLORS['bg_button_hover'],
+                    activeforeground=COLORS['text_primary'],
+                    cursor="hand2",
+                    relief=tk.FLAT,
+                    padx=20,
+                    pady=15
+                ).pack(pady=10)
+
+            # Качество партий
+            if allowed(['storekeeper', 'admin']):
+                tk.Button(
+                    button_frame,
+                    text="Качество партий",
+                    font=FONTS['button'],
+                    width=SIZES['button_width'],
+                    height=SIZES['button_height'],
+                    command=lambda: self.app.show_frame('Quality'),
+                    bg=COLORS['bg_button'],
+                    fg=COLORS['text_primary'],
+                    activebackground=COLORS['bg_button_hover'],
+                    activeforeground=COLORS['text_primary'],
+                    cursor="hand2",
+                    relief=tk.FLAT,
+                    padx=20,
+                    pady=15
+                ).pack(pady=10)
+
+        except Exception as e:
+            print("Ошибка построения меню:", e)
+            traceback.print_exc()
+            self.error_label = tk.Label(
+                self,
+                text=f"Ошибка загрузки меню: {e}",
+                font=FONTS['body'],
+                bg=COLORS['bg_main'],
+                fg=COLORS['bg_button_danger'],
+                pady=20
             )
-            btn_replenishment.pack(pady=10)
-
-        # Поставщики и договоры
-        if allowed(['supply', 'admin']):
+            self.error_label.pack()
             tk.Button(
-                button_frame,
-                text="Поставщики / Договоры",
+                self,
+                text="Повторить загрузку",
                 font=FONTS['button'],
-                width=SIZES['button_width'],
-                height=SIZES['button_height'],
-                command=lambda: self.app.show_frame('Suppliers'),
+                command=self.create_widgets,
                 bg=COLORS['bg_button'],
                 fg=COLORS['text_primary'],
-                activebackground=COLORS['bg_button_hover'],
-                activeforeground=COLORS['text_primary'],
-                cursor="hand2",
                 relief=tk.FLAT,
                 padx=20,
-                pady=15
+                pady=10
             ).pack(pady=10)
 
-        # Заказы и резервы
-        if allowed(['storekeeper', 'admin', 'supply']):
-            tk.Button(
-                button_frame,
-                text="Заказы производства",
-                font=FONTS['button'],
-                width=SIZES['button_width'],
-                height=SIZES['button_height'],
-                command=lambda: self.app.show_frame('Orders'),
-                bg=COLORS['bg_button'],
-                fg=COLORS['text_primary'],
-                activebackground=COLORS['bg_button_hover'],
-                activeforeground=COLORS['text_primary'],
-                cursor="hand2",
-                relief=tk.FLAT,
-                padx=20,
-                pady=15
-            ).pack(pady=10)
-            tk.Button(
-                button_frame,
-                text="Резервы материалов",
-                font=FONTS['button'],
-                width=SIZES['button_width'],
-                height=SIZES['button_height'],
-                command=lambda: self.app.show_frame('Reservations'),
-                bg=COLORS['bg_button'],
-                fg=COLORS['text_primary'],
-                activebackground=COLORS['bg_button_hover'],
-                activeforeground=COLORS['text_primary'],
-                cursor="hand2",
-                relief=tk.FLAT,
-                padx=20,
-                pady=15
-            ).pack(pady=10)
-
-        # Качество партий
-        if allowed(['storekeeper', 'admin']):
-            tk.Button(
-                button_frame,
-                text="Качество партий",
-                font=FONTS['button'],
-                width=SIZES['button_width'],
-                height=SIZES['button_height'],
-                command=lambda: self.app.show_frame('Quality'),
-                bg=COLORS['bg_button'],
-                fg=COLORS['text_primary'],
-                activebackground=COLORS['bg_button_hover'],
-                activeforeground=COLORS['text_primary'],
-                cursor="hand2",
-                relief=tk.FLAT,
-                padx=20,
-                pady=15
-            ).pack(pady=10)
+    def refresh(self):
+        """Перестраивает меню с учетом роли пользователя."""
+        self.create_widgets()
         
         # Информация о пользователе
         if self.app.current_user:

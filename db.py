@@ -7,8 +7,6 @@ import mysql.connector
 from mysql.connector import Error
 from datetime import datetime
 
-print("LOADED db.py FROM:", __file__)
-
 # Параметры подключения к базе данных
 # ВАЖНО: Перед запуском создайте базу данных 'textile_warehouse' в MySQL
 DB_CONFIG = {
