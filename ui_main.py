@@ -8,6 +8,7 @@ from tkinter import messagebox
 import traceback
 from config import COLORS, FONTS, SIZES
 from db import create_tables, migrate_tables
+from utils import ScrollableFrame
 from ui_login import LoginScreen
 from ui_materials import MaterialsScreen
 from ui_receipt import ReceiptScreen
@@ -20,6 +21,8 @@ from ui_orders import OrdersScreen
 from ui_reservations import ReservationsScreen
 from ui_quality import QualityScreen
 from ui_transfer import TransferScreen
+from ui_audit import AuditScreen
+from ui_users import UsersScreen
 
 
 class App:
@@ -84,6 +87,7 @@ class App:
     def has_permission(self, required_roles: list) -> bool:
         """
         Проверяет, есть ли у текущего пользователя права доступа.
+        Поддержка 7 ролей по ТЗ.
         
         Args:
             required_roles: Список ролей, которым разрешен доступ
@@ -93,7 +97,13 @@ class App:
         """
         if not self.user_role:
             return False
-        return self.user_role in required_roles or 'admin' in required_roles or self.user_role == 'admin'
+        
+        # Руководство имеет доступ ко всему
+        if self.user_role == 'director':
+            return True
+        
+        # Проверяем, есть ли роль в списке разрешенных
+        return self.user_role in required_roles
     
     def _create_screens(self):
         """Создает все экраны приложения."""
@@ -124,6 +134,8 @@ class App:
             self.frames['Reservations'] = ReservationsScreen(self.container, self)
             self.frames['Quality'] = QualityScreen(self.container, self)
             self.frames['Transfer'] = TransferScreen(self.container, self)
+            self.frames['Audit'] = AuditScreen(self.container, self)
+            self.frames['Users'] = UsersScreen(self.container, self)
         except Exception as e:
             print("Ошибка при создании экранов:", e)
             traceback.print_exc()
@@ -188,35 +200,37 @@ class App:
             self.root.quit()
 
 
-class MainMenu(tk.Frame):
+class MainMenu(ScrollableFrame):
     """
-    Главное меню приложения с кнопками навигации.
+    Главное меню приложения с кнопками навигации (скроллируемое).
     """
     
     def __init__(self, parent, app):
         super().__init__(parent, bg=COLORS['bg_main'])
         self.app = app
         self.error_label = None
+        # Используем scrollable_frame для содержимого
+        self.content = self.scrollable_frame
         self.create_widgets()
     
     def create_widgets(self):
         """Создает виджеты главного меню."""
         # Полная перерисовка
-        for child in self.winfo_children():
+        for child in self.content.winfo_children():
             child.destroy()
         if self.error_label:
             self.error_label.destroy()
             self.error_label = None
 
         def allowed(required):
-            # Админ видит все
-            if self.app.user_role == 'admin':
+            # Руководство и админ видят все
+            if self.app.user_role in ['director', 'admin']:
                 return True
             return self.app.has_permission(required)
 
         # Заголовок
         title_label = tk.Label(
-            self,
+            self.content,
             text="Управление складом",
             font=FONTS['title'],
             bg=COLORS['bg_main'],
@@ -226,7 +240,7 @@ class MainMenu(tk.Frame):
         title_label.pack()
         
         subtitle_label = tk.Label(
-            self,
+            self.content,
             text="Текстиль Плюс",
             font=FONTS['subheading'],
             bg=COLORS['bg_main'],
@@ -237,11 +251,11 @@ class MainMenu(tk.Frame):
         
         # Фрейм для кнопок
         try:
-            self.button_frame = tk.Frame(self, bg=COLORS['bg_main'], pady=40)
+            self.button_frame = tk.Frame(self.content, bg=COLORS['bg_main'], pady=40)
             self.button_frame.pack(expand=True)
         
-            # Кнопка "Материалы"
-            if allowed(['storekeeper', 'admin', 'supply']):
+            # Кнопка "Материалы" - Складской персонал, Руководство
+            if allowed(['storekeeper', 'director']):
                 tk.Button(
                     self.button_frame,
                     text="Материалы",
@@ -259,8 +273,8 @@ class MainMenu(tk.Frame):
                     pady=15
                 ).pack(pady=10)
         
-            # Кнопка "Приход"
-            if allowed(['storekeeper', 'admin']):
+            # Кнопка "Приход" - Складской персонал, Руководство
+            if allowed(['storekeeper', 'director']):
                 tk.Button(
                     self.button_frame,
                     text="Приход материалов",
@@ -278,8 +292,8 @@ class MainMenu(tk.Frame):
                     pady=15
                 ).pack(pady=10)
         
-            # Кнопка "Списание"
-            if allowed(['storekeeper', 'admin']):
+            # Кнопка "Списание" - Складской персонал, Руководство
+            if allowed(['storekeeper', 'director']):
                 tk.Button(
                     self.button_frame,
                     text="Списание материалов",
@@ -297,8 +311,8 @@ class MainMenu(tk.Frame):
                     pady=15
                 ).pack(pady=10)
 
-            # Перемещение
-            if allowed(['storekeeper', 'admin']):
+            # Перемещение - Складской персонал, Руководство
+            if allowed(['storekeeper', 'director']):
                 tk.Button(
                     self.button_frame,
                     text="Перемещения",
@@ -332,8 +346,8 @@ class MainMenu(tk.Frame):
                     pady=15
                 ).pack(pady=10)
         
-            # Кнопка "Отчеты"
-            if allowed(['accountant', 'admin', 'storekeeper', 'supply']):
+            # Кнопка "Отчеты" - Бухгалтерия, Руководство
+            if allowed(['accountant', 'director']):
                 tk.Button(
                     self.button_frame,
                     text="Отчет по остаткам",
@@ -351,8 +365,8 @@ class MainMenu(tk.Frame):
                     pady=15
                 ).pack(pady=10)
         
-            # Кнопка "Заявки на пополнение" (для снабженцев)
-            if allowed(['supply', 'admin']):
+            # Кнопка "Заявки на пополнение" - Отдел снабжения, Руководство
+            if allowed(['supply', 'director']):
                 tk.Button(
                     self.button_frame,
                     text="Заявки на пополнение",
@@ -370,8 +384,8 @@ class MainMenu(tk.Frame):
                     pady=15
                 ).pack(pady=10)
 
-            # Поставщики и договоры
-            if allowed(['supply', 'admin']):
+            # Поставщики и договоры - Отдел снабжения, Руководство
+            if allowed(['supply', 'director']):
                 tk.Button(
                     self.button_frame,
                     text="Поставщики / Договоры",
@@ -389,8 +403,8 @@ class MainMenu(tk.Frame):
                     pady=15
                 ).pack(pady=10)
 
-            # Заказы и резервы
-            if allowed(['storekeeper', 'admin', 'supply']):
+            # Заказы производства - Производственный отдел, Руководство
+            if allowed(['production', 'director']):
                 tk.Button(
                     self.button_frame,
                     text="Заказы производства",
@@ -407,6 +421,9 @@ class MainMenu(tk.Frame):
                     padx=20,
                     pady=15
                 ).pack(pady=10)
+            
+            # Резервы материалов - Производственный отдел, Руководство
+            if allowed(['production', 'director']):
                 tk.Button(
                     self.button_frame,
                     text="Резервы материалов",
@@ -424,8 +441,8 @@ class MainMenu(tk.Frame):
                     pady=15
                 ).pack(pady=10)
 
-            # Качество партий
-            if allowed(['storekeeper', 'admin']):
+            # Качество партий - Отдел контроля качества, Руководство
+            if allowed(['quality', 'director']):
                 tk.Button(
                     self.button_frame,
                     text="Качество партий",
@@ -443,48 +460,45 @@ class MainMenu(tk.Frame):
                     pady=15
                 ).pack(pady=10)
 
-        except Exception as e:
-            print("Ошибка построения меню:", e)
-            traceback.print_exc()
-            self.error_label = tk.Label(
-                self,
-                text=f"Ошибка загрузки меню: {e}",
-                font=FONTS['body'],
-                bg=COLORS['bg_main'],
-                fg=COLORS['bg_button_danger'],
-                pady=20
-            )
-            self.error_label.pack()
-            tk.Button(
-                self,
-                text="Повторить загрузку",
-                font=FONTS['button'],
-                command=self.create_widgets,
-                bg=COLORS['bg_button'],
-                fg=COLORS['text_primary'],
-                relief=tk.FLAT,
-                padx=20,
-                pady=10
-            ).pack(pady=10)
+            # Аудит - ИТ отдел, Руководство
+            if allowed(['it', 'director']):
+                tk.Button(
+                    self.button_frame,
+                    text="Журнал аудита",
+                    font=FONTS['button'],
+                    width=SIZES['button_width'],
+                    height=SIZES['button_height'],
+                    command=lambda: self.app.show_frame('Audit'),
+                    bg=COLORS['bg_button'],
+                    fg=COLORS['text_primary'],
+                    activebackground=COLORS['bg_button_hover'],
+                    activeforeground=COLORS['text_primary'],
+                    cursor="hand2",
+                    relief=tk.FLAT,
+                    padx=20,
+                    pady=15
+                ).pack(pady=10)
 
-    def refresh(self):
-        """Перестраивает меню с учетом роли пользователя."""
-        self.create_widgets()
-        
-        # Информация о пользователе
-        if self.app.current_user:
-            user_info = tk.Label(
-                self,
-                text=f"Пользователь: {self.app.current_user['username']} | Роль: {self.app.user_role}",
-                font=FONTS['small'],
-                bg=COLORS['bg_main'],
-                fg=COLORS['text_secondary'],
-                pady=10
-            )
-            user_info.pack()
-        
-        # Кнопка "Выход" (если button_frame создан)
-        if hasattr(self, 'button_frame') and self.button_frame:
+            # Пользователи - ИТ отдел, Руководство
+            if allowed(['it', 'director']):
+                tk.Button(
+                    self.button_frame,
+                    text="Управление пользователями",
+                    font=FONTS['button'],
+                    width=SIZES['button_width'],
+                    height=SIZES['button_height'],
+                    command=lambda: self.app.show_frame('Users'),
+                    bg=COLORS['bg_button'],
+                    fg=COLORS['text_primary'],
+                    activebackground=COLORS['bg_button_hover'],
+                    activeforeground=COLORS['text_primary'],
+                    cursor="hand2",
+                    relief=tk.FLAT,
+                    padx=20,
+                    pady=15
+                ).pack(pady=10)
+
+            # Кнопка "Выход"
             btn_exit = tk.Button(
                 self.button_frame,
                 text="Выход",
@@ -502,10 +516,50 @@ class MainMenu(tk.Frame):
                 pady=15
             )
             btn_exit.pack(pady=20)
+
+        except Exception as e:
+            print("Ошибка построения меню:", e)
+            traceback.print_exc()
+            self.error_label = tk.Label(
+                self.content,
+                text=f"Ошибка загрузки меню: {e}",
+                font=FONTS['body'],
+                bg=COLORS['bg_main'],
+                fg=COLORS['bg_button_danger'],
+                pady=20
+            )
+            self.error_label.pack()
+            tk.Button(
+                self.content,
+                text="Повторить загрузку",
+                font=FONTS['button'],
+                command=self.create_widgets,
+                bg=COLORS['bg_button'],
+                fg=COLORS['text_primary'],
+                relief=tk.FLAT,
+                padx=20,
+                pady=10
+            ).pack(pady=10)
+
+    def refresh(self):
+        """Перестраивает меню с учетом роли пользователя."""
+        self.create_widgets()
+        
+        # Информация о пользователе
+        if self.app.current_user:
+            user_info = tk.Label(
+                self.content,
+                text=f"Пользователь: {self.app.current_user['username']} | Роль: {self.app.user_role}",
+                font=FONTS['small'],
+                bg=COLORS['bg_main'],
+                fg=COLORS['text_secondary'],
+                pady=10
+            )
+            user_info.pack()
         
         # Информационная метка
         info_label = tk.Label(
-            self,
+            self.content,
             text="F11 - полноэкранный режим | Esc - выход из полноэкранного режима",
             font=FONTS['small'],
             bg=COLORS['bg_main'],

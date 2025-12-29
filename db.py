@@ -235,6 +235,17 @@ def migrate_tables():
             cursor.execute("ALTER TABLE audit_log ADD COLUMN details TEXT NULL")
             print("✓ Добавлено поле details в audit_log")
         
+        # Обновление ENUM ролей для поддержки 7 ролей по ТЗ
+        try:
+            cursor.execute("""
+                ALTER TABLE users MODIFY role ENUM('director', 'supply', 'storekeeper', 'production', 'it', 'accountant', 'quality', 'admin') 
+                NOT NULL DEFAULT 'storekeeper'
+            """)
+            print("✓ Обновлен ENUM ролей в таблице users")
+        except Exception as e:
+            # Если не удалось изменить ENUM (например, уже правильный), игнорируем
+            print(f"  Примечание: ENUM ролей уже актуален или не требует изменения: {e}")
+        
         connection.commit()
         print("Миграция базы данных завершена успешно!")
         return True
@@ -283,12 +294,12 @@ def create_tables():
         """)
         
         # Создание таблицы users (пользователи системы)
-        # Роли: storekeeper (кладовщик), supply (снабженец), accountant (бухгалтер), admin (администратор)
+        # 7 ролей по ТЗ: director, supply, storekeeper, production, it, accountant, quality
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 username VARCHAR(50) NOT NULL UNIQUE,
-                role ENUM('storekeeper', 'supply', 'accountant', 'admin') NOT NULL DEFAULT 'storekeeper',
+                role ENUM('director', 'supply', 'storekeeper', 'production', 'it', 'accountant', 'quality', 'admin') NOT NULL DEFAULT 'storekeeper',
                 INDEX idx_username (username),
                 INDEX idx_role (role)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -620,12 +631,15 @@ def seed_data():
             )
             material_ids[name] = cursor.lastrowid
         
-        # Добавляем пользователей (пользователи, роли и журнал операций)
+        # Добавляем пользователей (7 ролей по ТЗ)
         users_data = [
-            ('admin', 'admin'),
-            ('storekeeper', 'storekeeper'),
-            ('supply', 'supply'),
-            ('accountant', 'accountant'),
+            ('director', 'director'),  # Руководство
+            ('supply', 'supply'),  # Отдел снабжения
+            ('storekeeper', 'storekeeper'),  # Складской персонал
+            ('production', 'production'),  # Производственный отдел
+            ('it', 'it'),  # ИТ отдел
+            ('accountant', 'accountant'),  # Бухгалтерия
+            ('quality', 'quality'),  # Отдел контроля качества
         ]
         for username, role in users_data:
             try:

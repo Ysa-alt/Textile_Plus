@@ -4,12 +4,14 @@
 """
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
+from datetime import datetime
 from config import COLORS, FONTS, SIZES
+from utils import ScrollableFrame
 from models import get_stock_balance
 
 
-class ReportsScreen(tk.Frame):
+class ReportsScreen(ScrollableFrame):
     """
     Экран для отображения отчета по остаткам материалов.
     """
@@ -17,6 +19,7 @@ class ReportsScreen(tk.Frame):
     def __init__(self, parent, app):
         super().__init__(parent, bg=COLORS['bg_main'])
         self.app = app
+        self.content = self.scrollable_frame
         
         self.create_widgets()
         self.refresh_report()
@@ -25,7 +28,7 @@ class ReportsScreen(tk.Frame):
         """Создает виджеты экрана."""
         # Заголовок
         title_label = tk.Label(
-            self,
+            self.content,
             text="Отчет по остаткам материалов",
             font=FONTS['heading'],
             bg=COLORS['bg_main'],
@@ -36,7 +39,7 @@ class ReportsScreen(tk.Frame):
         
         # Кнопка "Назад"
         btn_back = tk.Button(
-            self,
+            self.content,
             text="← Назад в меню",
             font=FONTS['body'],
             command=lambda: self.app.show_frame('MainMenu'),
@@ -52,7 +55,7 @@ class ReportsScreen(tk.Frame):
         btn_back.pack(pady=10)
         
         # Фрейм для кнопок управления
-        control_frame = tk.Frame(self, bg=COLORS['bg_main'], pady=10)
+        control_frame = tk.Frame(self.content, bg=COLORS['bg_main'], pady=10)
         control_frame.pack()
         
         btn_refresh = tk.Button(
@@ -70,6 +73,22 @@ class ReportsScreen(tk.Frame):
             pady=5
         )
         btn_refresh.pack(side=tk.LEFT, padx=5)
+        
+        btn_word = tk.Button(
+            control_frame,
+            text="Скачать Word",
+            font=FONTS['body'],
+            command=self.export_to_word,
+            bg=COLORS['bg_button_success'],
+            fg=COLORS['text_primary'],
+            activebackground='#229954',
+            activeforeground=COLORS['text_primary'],
+            cursor="hand2",
+            relief=tk.FLAT,
+            padx=15,
+            pady=5
+        )
+        btn_word.pack(side=tk.LEFT, padx=5)
         
         # Фрейм для таблицы
         table_frame = tk.Frame(self, bg=COLORS['bg_frame'])
@@ -106,7 +125,7 @@ class ReportsScreen(tk.Frame):
         
         # Метка с информацией
         self.info_label = tk.Label(
-            self,
+            self.content,
             text="",
             font=FONTS['body'],
             bg=COLORS['bg_main'],
@@ -161,6 +180,59 @@ class ReportsScreen(tk.Frame):
             )
         else:
             self.info_label.config(text="Нет материалов с остатком на складе")
+    
+    def export_to_word(self):
+        """Экспортирует отчет в Word документ."""
+        try:
+            from docx import Document
+            from docx.shared import Inches, Pt
+        except ImportError:
+            messagebox.showerror("Ошибка", "Установите python-docx: pip install python-docx")
+            return
+        
+        try:
+            # Получаем данные
+            balances = get_stock_balance()
+            
+            # Создаем документ
+            doc = Document()
+            doc.add_heading('Отчет по остаткам материалов', 0)
+            doc.add_paragraph(f'Дата формирования: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+            doc.add_paragraph('')
+            
+            # Создаем таблицу
+            table = doc.add_table(rows=1, cols=4)
+            table.style = 'Light Grid Accent 1'
+            
+            # Заголовки
+            header_cells = table.rows[0].cells
+            header_cells[0].text = 'ID'
+            header_cells[1].text = 'Название материала'
+            header_cells[2].text = 'Единица измерения'
+            header_cells[3].text = 'Остаток'
+            
+            # Данные
+            total_balance = 0.0
+            for balance in balances:
+                if balance['balance'] > 0:
+                    row_cells = table.add_row().cells
+                    row_cells[0].text = str(balance['material_id'])
+                    row_cells[1].text = balance['name']
+                    row_cells[2].text = balance['unit']
+                    row_cells[3].text = f"{balance['balance']:.3f}"
+                    total_balance += balance['balance']
+            
+            # Итоговая строка
+            if total_balance > 0:
+                doc.add_paragraph('')
+                doc.add_paragraph(f'Общий остаток: {total_balance:.3f}')
+            
+            # Сохраняем
+            filename = f"отчет_остатки_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+            doc.save(filename)
+            messagebox.showinfo("Готово", f"Отчет сохранен: {filename}")
+        except Exception as e:
+            messagebox.showerror("Ошибка", f"Не удалось создать Word документ: {e}")
     
     def refresh(self):
         """Обновляет данные экрана при показе."""

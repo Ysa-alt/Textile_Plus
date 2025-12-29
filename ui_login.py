@@ -84,7 +84,7 @@ class LoginScreen(tk.Frame):
         # Информация
         info_label = tk.Label(
             center_frame,
-            text="Для демонстрации используйте: admin, storekeeper, supply, accountant",
+            text="Логины: director, supply, storekeeper, production, it, accountant, quality",
             font=FONTS['small'],
             bg=COLORS['bg_main'],
             fg=COLORS['text_muted'],
@@ -93,40 +93,42 @@ class LoginScreen(tk.Frame):
         info_label.pack()
     
     def login(self):
-        """Выполняет авторизацию пользователя."""
+        """Выполняет авторизацию пользователя (без пароля)."""
         username = self.username_entry.get().strip()
         
         if not username:
             messagebox.showerror("Ошибка", "Введите имя пользователя!")
             return
         
+        # Список разрешенных ролей по ТЗ
+        allowed_roles = ['director', 'supply', 'storekeeper', 'production', 'it', 'accountant', 'quality']
+        
+        if username not in allowed_roles:
+            messagebox.showerror("Ошибка", f"Неверный логин. Используйте: {', '.join(allowed_roles)}")
+            return
+        
+        # Ищем или создаем пользователя
         user = get_user_by_username(username)
         
         if not user:
-            # Создаем пользователя с ролью по умолчанию (для демонстрации)
+            # Создаем пользователя с ролью = логину
             from db import get_connection
             connection = get_connection()
             if connection:
                 cursor = connection.cursor()
                 try:
-                    # Определяем роль по имени (для демо)
-                    role = 'storekeeper'
-                    if 'admin' in username.lower():
-                        role = 'admin'
-                    elif 'supply' in username.lower() or 'снаб' in username.lower():
-                        role = 'supply'
-                    elif 'accountant' in username.lower() or 'бух' in username.lower():
-                        role = 'accountant'
-                    
                     cursor.execute(
                         "INSERT INTO users (username, role) VALUES (%s, %s)",
-                        (username, role)
+                        (username, username)  # роль = логин
                     )
                     connection.commit()
-                    user = {'id': cursor.lastrowid, 'username': username, 'role': role}
-                    print(f"Создан новый пользователь: {username} с ролью {role}")
-                except:
+                    user = {'id': cursor.lastrowid, 'username': username, 'role': username}
+                    print(f"Создан новый пользователь: {username} с ролью {username}")
+                except Exception as e:
+                    print(f"Ошибка при создании пользователя: {e}")
                     connection.rollback()
+                    # Пробуем найти пользователя с другой ролью
+                    user = get_user_by_username(username)
                 finally:
                     cursor.close()
                     connection.close()
@@ -134,7 +136,7 @@ class LoginScreen(tk.Frame):
         if user:
             self.current_user = user
             self.app.current_user = user
-            self.app.user_role = user['role']
+            self.app.user_role = user.get('role', username)  # Используем роль из БД или логин
             self.app.show_frame('MainMenu')
         else:
             messagebox.showerror("Ошибка", "Не удалось войти в систему!")
