@@ -182,8 +182,9 @@ def migrate_tables():
             print("✓ Добавлено поле contact в suppliers")
 
         # contracts: contract_date, description (оставляем старый signed_at)
+        # Используем DATETIME для совместимости с MySQL 5.7
         for field_name, field_def in [
-            ('contract_date', 'DATE NULL'),
+            ('contract_date', 'DATETIME DEFAULT CURRENT_TIMESTAMP'),
             ('description', 'VARCHAR(255) NULL')
         ]:
             cursor.execute("""
@@ -195,9 +196,10 @@ def migrate_tables():
                 print(f"✓ Добавлено поле {field_name} в contracts")
 
         # production_orders: number, order_date, status
+        # Используем DATETIME для совместимости с MySQL 5.7
         prod_fields = [
             ('number', "VARCHAR(50) NOT NULL", "UNIQUE"),
-            ('order_date', "DATE NULL", None),
+            ('order_date', "DATETIME DEFAULT CURRENT_TIMESTAMP", None),
             ('status', "ENUM('NEW','IN_PROGRESS','DONE','CANCELLED') DEFAULT 'NEW'", None)
         ]
         for field_name, field_def, extra in prod_fields:
@@ -322,7 +324,7 @@ def create_tables():
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 supplier_id INT NOT NULL,
                 number VARCHAR(50) NOT NULL,
-                contract_date DATE NULL,
+                contract_date DATETIME DEFAULT CURRENT_TIMESTAMP,
                 description VARCHAR(255) NULL,
                 FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE,
                 INDEX idx_supplier (supplier_id),
@@ -409,7 +411,7 @@ def create_tables():
             CREATE TABLE IF NOT EXISTS production_orders (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 number VARCHAR(50) NOT NULL UNIQUE,
-                order_date DATE NULL,
+                order_date DATETIME DEFAULT CURRENT_TIMESTAMP,
                 status ENUM('NEW','IN_PROGRESS','DONE','CANCELLED') DEFAULT 'NEW',
                 description VARCHAR(255) NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

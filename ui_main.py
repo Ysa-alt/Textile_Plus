@@ -237,13 +237,13 @@ class MainMenu(tk.Frame):
         
         # Фрейм для кнопок
         try:
-            button_frame = tk.Frame(self, bg=COLORS['bg_main'], pady=40)
-            button_frame.pack(expand=True)
+            self.button_frame = tk.Frame(self, bg=COLORS['bg_main'], pady=40)
+            self.button_frame.pack(expand=True)
         
             # Кнопка "Материалы"
             if allowed(['storekeeper', 'admin', 'supply']):
                 tk.Button(
-                    button_frame,
+                    self.button_frame,
                     text="Материалы",
                     font=FONTS['button'],
                     width=SIZES['button_width'],
@@ -262,7 +262,7 @@ class MainMenu(tk.Frame):
             # Кнопка "Приход"
             if allowed(['storekeeper', 'admin']):
                 tk.Button(
-                    button_frame,
+                    self.button_frame,
                     text="Приход материалов",
                     font=FONTS['button'],
                     width=SIZES['button_width'],
@@ -281,7 +281,7 @@ class MainMenu(tk.Frame):
             # Кнопка "Списание"
             if allowed(['storekeeper', 'admin']):
                 tk.Button(
-                    button_frame,
+                    self.button_frame,
                     text="Списание материалов",
                     font=FONTS['button'],
                     width=SIZES['button_width'],
@@ -300,7 +300,7 @@ class MainMenu(tk.Frame):
             # Перемещение
             if allowed(['storekeeper', 'admin']):
                 tk.Button(
-                    button_frame,
+                    self.button_frame,
                     text="Перемещения",
                     font=FONTS['button'],
                     width=SIZES['button_width'],
@@ -316,7 +316,7 @@ class MainMenu(tk.Frame):
                     pady=15
                 ).pack(pady=10)
                 tk.Button(
-                    button_frame,
+                    self.button_frame,
                     text="Адреса хранения",
                     font=FONTS['button'],
                     width=SIZES['button_width'],
@@ -335,7 +335,7 @@ class MainMenu(tk.Frame):
             # Кнопка "Отчеты"
             if allowed(['accountant', 'admin', 'storekeeper', 'supply']):
                 tk.Button(
-                    button_frame,
+                    self.button_frame,
                     text="Отчет по остаткам",
                     font=FONTS['button'],
                     width=SIZES['button_width'],
@@ -354,7 +354,7 @@ class MainMenu(tk.Frame):
             # Кнопка "Заявки на пополнение" (для снабженцев)
             if allowed(['supply', 'admin']):
                 tk.Button(
-                    button_frame,
+                    self.button_frame,
                     text="Заявки на пополнение",
                     font=FONTS['button'],
                     width=SIZES['button_width'],
@@ -373,7 +373,7 @@ class MainMenu(tk.Frame):
             # Поставщики и договоры
             if allowed(['supply', 'admin']):
                 tk.Button(
-                    button_frame,
+                    self.button_frame,
                     text="Поставщики / Договоры",
                     font=FONTS['button'],
                     width=SIZES['button_width'],
@@ -392,7 +392,7 @@ class MainMenu(tk.Frame):
             # Заказы и резервы
             if allowed(['storekeeper', 'admin', 'supply']):
                 tk.Button(
-                    button_frame,
+                    self.button_frame,
                     text="Заказы производства",
                     font=FONTS['button'],
                     width=SIZES['button_width'],
@@ -408,7 +408,7 @@ class MainMenu(tk.Frame):
                     pady=15
                 ).pack(pady=10)
                 tk.Button(
-                    button_frame,
+                    self.button_frame,
                     text="Резервы материалов",
                     font=FONTS['button'],
                     width=SIZES['button_width'],
@@ -427,7 +427,7 @@ class MainMenu(tk.Frame):
             # Качество партий
             if allowed(['storekeeper', 'admin']):
                 tk.Button(
-                    button_frame,
+                    self.button_frame,
                     text="Качество партий",
                     font=FONTS['button'],
                     width=SIZES['button_width'],
@@ -483,24 +483,25 @@ class MainMenu(tk.Frame):
             )
             user_info.pack()
         
-        # Кнопка "Выход"
-        btn_exit = tk.Button(
-            button_frame,
-            text="Выход",
-            font=FONTS['button'],
-            width=SIZES['button_width'],
-            height=SIZES['button_height'],
-            command=self.app.quit_app,
-            bg=COLORS['bg_button_danger'],
-            fg=COLORS['text_primary'],
-            activebackground='#c0392b',
-            activeforeground=COLORS['text_primary'],
-            cursor="hand2",
-            relief=tk.FLAT,
-            padx=20,
-            pady=15
-        )
-        btn_exit.pack(pady=20)
+        # Кнопка "Выход" (если button_frame создан)
+        if hasattr(self, 'button_frame') and self.button_frame:
+            btn_exit = tk.Button(
+                self.button_frame,
+                text="Выход",
+                font=FONTS['button'],
+                width=SIZES['button_width'],
+                height=SIZES['button_height'],
+                command=self.app.quit_app,
+                bg=COLORS['bg_button_danger'],
+                fg=COLORS['text_primary'],
+                activebackground='#c0392b',
+                activeforeground=COLORS['text_primary'],
+                cursor="hand2",
+                relief=tk.FLAT,
+                padx=20,
+                pady=15
+            )
+            btn_exit.pack(pady=20)
         
         # Информационная метка
         info_label = tk.Label(

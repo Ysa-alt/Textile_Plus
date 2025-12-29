@@ -718,6 +718,32 @@ def get_all_batches_with_material() -> List[Dict]:
         connection.close()
 
 
+def get_all_batches() -> List[Dict]:
+    """Возвращает все партии с расчетом остатков."""
+    connection = get_connection()
+    if not connection:
+        return []
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT 
+                b.*,
+                COALESCE(SUM(CASE WHEN m.movement_type = 'OUT' THEN m.quantity ELSE 0 END), 0) as used_quantity,
+                (b.quantity - COALESCE(SUM(CASE WHEN m.movement_type = 'OUT' THEN m.quantity ELSE 0 END), 0)) as remaining
+            FROM batches b
+            LEFT JOIN movements m ON m.batch_id = b.id AND m.movement_type = 'OUT'
+            GROUP BY b.id
+            ORDER BY b.received_at DESC
+        """)
+        return cursor.fetchall()
+    except Exception as e:
+        print(f"Ошибка при получении партий: {e}")
+        return []
+    finally:
+        cursor.close()
+        connection.close()
+
+
 # ==================== ПЕРЕМЕЩЕНИЕ МЕЖДУ ЛОКАЦИЯМИ ====================
 
 def transfer_batch(batch_id: int, to_location_id: int, quantity: float, user_id: Optional[int] = None) -> bool:
