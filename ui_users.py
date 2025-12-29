@@ -132,3 +132,4 @@ class UsersScreen(ScrollableFrame):
             cursor.close()
             connection.close()
 
+
